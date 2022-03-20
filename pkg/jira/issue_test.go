@@ -335,3 +335,38 @@ func TestAddIssueComment(t *testing.T) {
 	err = client.AddIssueComment("TEST-1", "comment")
 	assert.Error(t, &ErrUnexpectedResponse{}, err)
 }
+
+func TestAddIssueWorklog(t *testing.T) {
+	var unexpectedStatusCode bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/rest/api/2/issue/TEST-1/worklog", r.URL.Path)
+		assert.Equal(t, "application/json", r.Header.Get("Accept"))
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		actualBody := new(strings.Builder)
+		_, _ = io.Copy(actualBody, r.Body)
+
+		expectedBody := `{"comment":"comment", "started": "today", "timeSpent": "30m"}`
+
+		assert.Equal(t, expectedBody, actualBody.String())
+
+		if unexpectedStatusCode {
+			w.WriteHeader(400)
+		} else {
+			w.WriteHeader(201)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+
+	err := client.AddIssueWorklog("TEST-1", "comment", "today", "30m")
+	assert.NoError(t, err)
+
+	unexpectedStatusCode = true
+
+	err = client.AddIssueWorklog("TEST-1", "comment", "today", "30m")
+	assert.Error(t, &ErrUnexpectedResponse{}, err)
+}

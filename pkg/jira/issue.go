@@ -259,6 +259,39 @@ func (c *Client) AddIssueComment(key, comment string) error {
 	return nil
 }
 
+type issueWorklogRequest struct {
+	Comment   string `json:"comment"`
+	Started   string `json:"started"`
+	TimeSpent string `json:"timeSpent"`
+}
+
+// AddIssueWorklog adds worklog to an issue using POST /issue/{key}/worklog endpoint.
+// It only supports plain text worklog at the moment.
+func (c *Client) AddIssueWorklog(key, worklog string, started string, timeSpent string) error {
+	body, err := json.Marshal(&issueWorklogRequest{Comment: md.ToJiraMD(worklog), Started: started, TimeSpent: timeSpent})
+	if err != nil {
+		return err
+	}
+
+	path := fmt.Sprintf("/issue/%s/worklog", key)
+	res, err := c.PostV2(context.Background(), path, body, Header{
+		"Accept":       "application/json",
+		"Content-Type": "application/json",
+	})
+	if err != nil {
+		return err
+	}
+	if res == nil {
+		return ErrEmptyResponse
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	if res.StatusCode != http.StatusCreated {
+		return formatUnexpectedResponse(res)
+	}
+	return nil
+}
+
 func ifaceToADF(v interface{}) *adf.ADF {
 	if v == nil {
 		return nil
