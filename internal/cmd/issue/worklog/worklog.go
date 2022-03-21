@@ -8,8 +8,8 @@ import (
 
 const helpText = `Worklog command helps you manage issue comments. See available commands below.`
 
-// NewCmdComment is a comment command.
-func NewCmdComment() *cobra.Command {
+// NewCmdWorklog is a worklog command.
+func NewCmdWorklog() *cobra.Command {
 	cmd := cobra.Command{
 		Use:     "worklog",
 		Short:   "Manage issue worklogs",

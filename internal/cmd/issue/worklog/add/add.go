@@ -2,6 +2,7 @@ package add
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
@@ -81,7 +82,7 @@ func add(cmd *cobra.Command, args []string) {
 
 	qs := ac.getQuestions()
 	if len(qs) > 0 {
-		ans := struct{ IssueKey, Comment, Started, TimeSpent string }{}
+		ans := struct{ IssueKey, Comment, StartedDate, StartedTime, TimeSpent string }{}
 		err := survey.Ask(qs, &ans)
 		cmdutil.ExitIfError(err)
 
@@ -91,8 +92,11 @@ func add(cmd *cobra.Command, args []string) {
 		if params.comment == "" {
 			params.comment = ans.Comment
 		}
-		if params.started == "" {
-			params.started = ans.Started
+		if params.startedDate == "" {
+			params.startedDate = ans.StartedDate
+		}
+		if params.startedTime == "" {
+			params.startedTime = ans.StartedTime
 		}
 		if params.timeSpent == "" {
 			params.timeSpent = ans.TimeSpent
@@ -113,7 +117,7 @@ func add(cmd *cobra.Command, args []string) {
 		s := cmdutil.Info("Adding worklog")
 		defer s.Stop()
 
-		return client.AddIssueWorklog(ac.params.issueKey, ac.params.comment, ac.params.started, ac.params.timeSpent)
+		return client.AddIssueWorklog(ac.params.issueKey, ac.params.comment, ac.params.startedDate+"T"+params.startedTime+":00.000+0100", ac.params.timeSpent)
 	}()
 	cmdutil.ExitIfError(err)
 
@@ -129,32 +133,38 @@ func add(cmd *cobra.Command, args []string) {
 }
 
 type addParams struct {
-	issueKey  string
-	comment   string
-	started   string
-	timeSpent string
-	template  string
-	noInput   bool
-	debug     bool
+	issueKey    string
+	comment     string
+	startedDate string
+	startedTime string
+	timeSpent   string
+	template    string
+	noInput     bool
+	debug       bool
 }
 
 func parseArgsAndFlags(args []string, flags query.FlagParser) *addParams {
-	var issueKey, comment, started, timeSpent string
+	var issueKey, timeSpent, comment, startedDate, startedTime string
 
 	nargs := len(args)
 	if nargs >= 1 {
 		issueKey = cmdutil.GetJiraIssueKey(viper.GetString("project.key"), args[0])
 	}
+
 	if nargs >= 2 {
-		comment = args[1]
+		timeSpent = args[1]
 	}
 
 	if nargs >= 3 {
-		started = args[2]
+		comment = args[2]
 	}
 
 	if nargs >= 4 {
-		timeSpent = args[3]
+		startedDate = args[3]
+	}
+
+	if nargs >= 5 {
+		startedTime = args[4]
 	}
 
 	debug, err := flags.GetBool("debug")
@@ -167,13 +177,14 @@ func parseArgsAndFlags(args []string, flags query.FlagParser) *addParams {
 	cmdutil.ExitIfError(err)
 
 	return &addParams{
-		issueKey:  issueKey,
-		comment:   comment,
-		started:   started,
-		timeSpent: timeSpent,
-		template:  template,
-		noInput:   noInput,
-		debug:     debug,
+		issueKey:    issueKey,
+		comment:     comment,
+		startedDate: startedDate,
+		startedTime: startedTime,
+		timeSpent:   timeSpent,
+		template:    template,
+		noInput:     noInput,
+		debug:       debug,
 	}
 }
 
@@ -214,7 +225,20 @@ func (ac *addCmd) getQuestions() []*survey.Question {
 		})
 	}
 
+	currentTime := time.Now()
+
 	var defaultBody string
+	defaultTimeSpent := "60m"
+	defaultComment := "Implementation"
+	defaultDate := currentTime.Format("2006-01-02")
+	defaultTime := currentTime.Format("15:04")
+
+	if ac.params.timeSpent == "" {
+		qs = append(qs, &survey.Question{
+			Name:   "timeSpent",
+			Prompt: &survey.Input{Message: "Worklog time spent", Default: defaultTimeSpent},
+		})
+	}
 
 	if ac.params.template != "" || cmdutil.StdinHasData() {
 		b, err := cmdutil.ReadFile(ac.params.template)
@@ -235,8 +259,8 @@ func (ac *addCmd) getQuestions() []*survey.Question {
 			Prompt: &surveyext.JiraEditor{
 				Editor: &survey.Editor{
 					Message:       "Worklog comment",
-					Default:       defaultBody,
-					HideDefault:   true,
+					Default:       defaultComment,
+					HideDefault:   false,
 					AppendDefault: true,
 				},
 				BlankAllowed: false,
@@ -244,33 +268,17 @@ func (ac *addCmd) getQuestions() []*survey.Question {
 		})
 	}
 
-	if ac.params.started == "" {
+	if ac.params.startedDate == "" {
 		qs = append(qs, &survey.Question{
-			Name: "started",
-			Prompt: &surveyext.JiraEditor{
-				Editor: &survey.Editor{
-					Message:       "Worklog started",
-					Default:       defaultBody,
-					HideDefault:   true,
-					AppendDefault: true,
-				},
-				BlankAllowed: false,
-			},
+			Name:   "startedDate",
+			Prompt: &survey.Input{Message: "Worklog started date (YYYY-MM-DD)", Default: defaultDate},
 		})
 	}
 
-	if ac.params.timeSpent == "" {
+	if ac.params.startedTime == "" {
 		qs = append(qs, &survey.Question{
-			Name: "timeSpent",
-			Prompt: &surveyext.JiraEditor{
-				Editor: &survey.Editor{
-					Message:       "Worklog time spent",
-					Default:       defaultBody,
-					HideDefault:   true,
-					AppendDefault: true,
-				},
-				BlankAllowed: false,
-			},
+			Name:   "startedTime",
+			Prompt: &survey.Input{Message: "Worklog started time (hh:mm)", Default: defaultTime},
 		})
 	}
 
