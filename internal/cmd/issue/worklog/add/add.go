@@ -21,10 +21,10 @@ const (
 	examples = `$ jira issue worklog add
 
 # Pass required parameters to skip prompt 
-$ jira issue comment add ISSUE-1 "My worklog"
+$ jira issue worklog add ISSUE-1 60m "My worklog" "2022-02-02" "13:35"
 
 # Multi-line worklog
-$ jira issue worklog add ISSUE-1 $'Supports\n\nNew line'
+$ jira issue worklog add ISSUE-1 2h $'Supports\n\nNew line'
 
 # Load worklog body from a template file
 $ jira issue worklog add ISSUE-1 --template /path/to/template.tmpl
@@ -43,13 +43,16 @@ $ jira issue comment add ISSUE-1 "worklog from arg" --template /path/to/template
 // NewCmdCommentAdd is a comment add command.
 func NewCmdCWorklogAdd() *cobra.Command {
 	cmd := cobra.Command{
-		Use:     "add ISSUE-KEY [COMMENT_BODY]",
+		Use:     "add [ISSUE-KEY] [TIME_SPENT] [WORKLOG_BODY] [STARTED_DATE] [STARTED_TIME]",
 		Short:   "Add a comment to an issue",
 		Long:    helpText,
 		Example: examples,
 		Annotations: map[string]string{
 			"help:args": "ISSUE-KEY\tIssue key of the source issue, eg: ISSUE-1\n" +
-				"WORKLOG_BODY\tBody of the worklog you want to add",
+				"TIME_SPENT\tTime spent in format '30m' or '4h 20m', etc.\n" +
+				"WORKLOG_BODY\tBody of the worklog you want to add\n" +
+				"STARTED_DATE\tDate in format '2022-05-15'\n" +
+				"STARTED_TIME\tTime in format '15:55'",
 		},
 		Run: add,
 	}
@@ -78,7 +81,7 @@ func add(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	cmdutil.ExitIfError(ac.setIssueKey())
+	// cmdutil.ExitIfError(ac.setIssueKey())
 
 	qs := ac.getQuestions()
 	if len(qs) > 0 {
